@@ -14,7 +14,7 @@ function delay<T>(data: T, ms = MOCK_DELAY): Promise<T> {
 export const mockDashboardData: DashboardData = {
   user: {
     id: 1,
-    name: 'María Fernanda Ruiz',
+    name: 'Steven Ichau',
     email: 'm.ruiz@prolipa.edu.ec',
     role: 'Docente de Matemáticas',
     avatarInitials: 'MR',
