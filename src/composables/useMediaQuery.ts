@@ -27,3 +27,12 @@ export function useMediaQuery(query: string) {
 export function useIsMobile() {
   return useMediaQuery('(max-width: 767px)')
 }
+
+/** Móvil + tablet: vista tarjetas y layout táctil (hasta 1023px). */
+export function usePreferCampusGrid() {
+  return useMediaQuery('(max-width: 1023px)')
+}
+
+export function useIsDesktopCampus() {
+  return useMediaQuery('(min-width: 1024px)')
+}

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Vista principal del campus en móvil — grid táctil, sin escena 3D.
+ * Vista principal del campus en móvil/tablet — grid táctil, sin escena 3D.
  */
 import { useRouter } from 'vue-router'
 import { CAMPUS_MODULES } from '@/config/modules'
@@ -33,21 +33,21 @@ function openModule(mod: CampusModule) {
     </div>
 
     <div class="custom-scroll relative h-full overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
-      <!-- Hero — solo móvil -->
-      <section class="px-4 pb-5 pt-[7rem] md:hidden">
+      <!-- Hero — móvil y tablet -->
+      <section class="px-4 pb-5 pt-[5.25rem] lg:hidden">
         <p class="text-[11px] font-medium uppercase tracking-wider text-indigo-400">
           Prolipa · Campus Virtual
         </p>
         <h1 class="mt-1.5 text-2xl font-bold tracking-tight text-white">
           ¡Hola, Docente!
         </h1>
-        <p class="mt-1.5 max-w-[280px] text-sm leading-relaxed text-slate-400">
+        <p class="mt-1.5 max-w-[280px] text-sm leading-relaxed text-slate-400 md:max-w-md">
           Elige un módulo para continuar. Tu campus, optimizado para móvil.
         </p>
       </section>
 
-      <!-- Acciones rápidas — solo móvil -->
-      <div class="flex gap-2.5 px-4 pb-5 md:hidden">
+      <!-- Acciones rápidas — móvil y tablet -->
+      <div class="flex gap-2.5 px-4 pb-5 lg:hidden">
         <button
           type="button"
           class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-prolipa-500 to-edu-500 py-3 text-sm font-semibold text-white shadow-lg shadow-prolipa-500/20 active:scale-[0.98]"
@@ -67,11 +67,11 @@ function openModule(mod: CampusModule) {
       </div>
 
       <!-- Grid de módulos -->
-      <section class="px-4 pb-6 md:mx-auto md:max-w-5xl md:px-8 md:pb-8 md:pt-[5.75rem]">
+      <section class="px-4 pb-6 md:mx-auto md:max-w-5xl md:px-8 md:pb-8 lg:pt-[10rem]">
         <h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500 md:mb-4">
           Módulos del campus
         </h2>
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-3">
           <button
             v-for="mod in CAMPUS_MODULES"
             :key="mod.id"

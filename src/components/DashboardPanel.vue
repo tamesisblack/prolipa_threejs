@@ -6,6 +6,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDashboardStore } from '@/stores/dashboard'
+import { usePreferCampusGrid } from '@/composables/useMediaQuery'
 import { animatePanelIn } from '@/composables/useGsap'
 import UserCard from '@/components/UserCard.vue'
 import CalendarCard from '@/components/CalendarCard.vue'
@@ -14,6 +15,9 @@ import NotificationPanel from '@/components/NotificationPanel.vue'
 const store = useDashboardStore()
 const router = useRouter()
 const panelRef = ref<HTMLElement | null>(null)
+const preferGrid = usePreferCampusGrid()
+
+defineEmits<{ close: [] }>()
 
 onMounted(async () => {
   if (!store.data) await store.load()
@@ -44,8 +48,28 @@ function statusColor(status: string) {
 <template>
   <aside
     ref="panelRef"
-    class="dashboard-panel custom-scroll flex h-full w-full flex-col gap-4 overflow-y-auto border-l border-white/60 bg-white/40 p-5 backdrop-blur-xl"
+    class="dashboard-panel flex h-full w-full flex-col overflow-hidden backdrop-blur-xl"
+    :class="preferGrid ? 'bg-white' : 'border-l border-white/60 bg-white/40'"
   >
+    <header
+      v-if="preferGrid"
+      class="panel-close-bar flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]"
+    >
+      <div>
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Campus Virtual</p>
+        <h2 class="text-sm font-bold text-slate-800">Mi panel docente</h2>
+      </div>
+      <button
+        type="button"
+        class="panel-close-btn"
+        aria-label="Cerrar panel"
+        @click="$emit('close')"
+      >
+        <span aria-hidden="true">✕</span>
+      </button>
+    </header>
+
+    <div class="custom-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
     <!-- Loading skeleton -->
     <template v-if="store.loading">
       <div v-for="i in 4" :key="i" class="glass h-24 animate-pulse rounded-2xl" />
@@ -190,5 +214,34 @@ function statusColor(status: string) {
 
       <CalendarCard :events="store.data.calendar" />
     </template>
+    </div>
   </aside>
 </template>
+
+<style scoped>
+.panel-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.panel-close-btn:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.panel-close-btn:active {
+  transform: scale(0.96);
+}
+</style>

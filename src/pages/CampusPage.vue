@@ -1,22 +1,20 @@
 <script setup lang="ts">
 /**
- * Página principal — Campus 3D (desktop) / grid o esferas en móvil.
+ * Página principal — islas 3D en desktop / tarjetas en móvil y tablet.
  */
-import { defineAsyncComponent, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import DashboardPanel from '@/components/DashboardPanel.vue'
 import MobileCampusHome from '@/components/mobile/MobileCampusHome.vue'
-import CampusViewToggle from '@/components/mobile/CampusViewToggle.vue'
-import { useIsMobile } from '@/composables/useMediaQuery'
+import { usePreferCampusGrid } from '@/composables/useMediaQuery'
 import { useMobileCampusView } from '@/composables/useMobileCampusView'
-import { useAssistantStore } from '@/stores/assistant'
 
 const CampusScene = defineAsyncComponent(
   () => import('@/components/three/CampusScene.vue'),
 )
 
-const isMobile = useIsMobile()
+const preferGrid = usePreferCampusGrid()
 const { view: campusView } = useMobileCampusView()
-const assistant = useAssistantStore()
+const effectiveView = computed(() => (preferGrid.value ? 'grid' : campusView.value))
 const panelOpen = ref(false)
 const sceneRef = ref<{ resetCamera?: () => void } | null>(null)
 
@@ -25,29 +23,29 @@ function togglePanel() {
 }
 
 watch(panelOpen, (open) => {
-  if (open && !isMobile.value) {
+  if (open && !preferGrid.value) {
     setTimeout(() => sceneRef.value?.resetCamera?.(), 400)
   }
 })
 
-watch(isMobile, (mobile) => {
-  if (mobile) panelOpen.value = false
+watch(preferGrid, (compact) => {
+  if (compact) panelOpen.value = false
 })
 </script>
 
 <template>
   <div
     class="campus-page relative flex h-full w-full overflow-hidden"
-    :class="{ 'panel-open': panelOpen, 'is-mobile': isMobile }"
+    :class="{ 'panel-open': panelOpen, 'is-compact': preferGrid }"
   >
     <!-- Vista tarjetas -->
     <MobileCampusHome
-      v-if="campusView === 'grid'"
+      v-if="effectiveView === 'grid'"
       class="relative min-h-0 min-w-0 flex-1"
       @toggle-panel="togglePanel"
     />
 
-    <!-- Vista esferas 3D -->
+    <!-- Vista islas 3D — solo desktop -->
     <div v-else class="relative min-h-0 min-w-0 flex-1 overflow-hidden">
       <Suspense>
         <CampusScene ref="sceneRef" :panel-open="panelOpen" />
@@ -57,36 +55,12 @@ watch(isMobile, (mobile) => {
           </div>
         </template>
       </Suspense>
-
-      <div v-if="isMobile" class="mobile-scene-actions">
-        <button
-          type="button"
-          class="mobile-scene-btn mobile-scene-btn-primary"
-          @click="assistant.open()"
-        >
-          <span>✨</span>
-          Proli IA
-        </button>
-        <button
-          type="button"
-          class="mobile-scene-btn"
-          @click="togglePanel"
-        >
-          <span>📊</span>
-          Mi panel
-        </button>
-      </div>
     </div>
 
-    <!-- Chip vista — abajo izquierda, siempre visible -->
-    <div class="campus-view-bar">
-      <CampusViewToggle />
-    </div>
-
-    <!-- Backdrop móvil -->
+    <!-- Backdrop panel — móvil y tablet -->
     <Transition name="fade">
       <button
-        v-if="isMobile && panelOpen"
+        v-if="preferGrid && panelOpen"
         type="button"
         class="panel-backdrop"
         aria-label="Cerrar panel"
@@ -99,12 +73,12 @@ watch(isMobile, (mobile) => {
       class="panel-wrapper"
       :class="panelOpen ? 'is-open' : 'is-closed'"
     >
-      <DashboardPanel class="h-full !w-full" />
+      <DashboardPanel class="h-full !w-full" @close="panelOpen = false" />
     </div>
 
-    <!-- Toggle panel — solo desktop -->
+    <!-- Toggle panel — solo desktop grande -->
     <button
-      v-if="!isMobile"
+      v-if="!preferGrid"
       type="button"
       class="panel-toggle"
       :aria-expanded="panelOpen"
@@ -205,56 +179,12 @@ watch(isMobile, (mobile) => {
   writing-mode: vertical-rl;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .campus-page {
     --panel-width: 100%;
-  }
-
-  .mobile-scene-actions {
-    position: absolute;
-    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-    left: 1rem;
-    right: 1rem;
-    z-index: 20;
-    display: flex;
-    gap: 0.625rem;
-  }
-
-  .mobile-scene-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    border-radius: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(30, 41, 59, 0.9);
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #e2e8f0;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  }
-
-  .mobile-scene-btn-primary {
-    border-color: transparent;
-    background: linear-gradient(to right, var(--tw-gradient-from, #3b82f6), var(--tw-gradient-to, #10b981));
-    background: linear-gradient(to right, #3b82f6, #10b981);
-    color: #fff;
   }
 }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
-
-.campus-view-bar {
-  position: fixed;
-  top: calc(3.75rem + env(safe-area-inset-top, 0px));
-  left: 50%;
-  z-index: 45;
-  pointer-events: auto;
-  transform: translateX(-50%);
-  max-width: calc(100% - 2rem);
-}
 </style>

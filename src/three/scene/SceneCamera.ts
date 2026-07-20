@@ -37,7 +37,8 @@ function applyCameraSettings(
   isMobile: boolean,
 ) {
   const portrait = height > width
-  const lookAt = new THREE.Vector3(offsetX, 0, 0)
+  const lookAtY = isMobile ? 0 : -1.75
+  const lookAt = new THREE.Vector3(offsetX, lookAtY, 0)
 
   camera.fov = isMobile ? (portrait ? 54 : 46) : 38
   camera.aspect = width / height
@@ -52,7 +53,7 @@ function applyCameraSettings(
     controls.autoRotateSpeed = 0.22
     controls.maxPolarAngle = Math.PI / 2.05
   } else {
-    camera.position.set(offsetX + 14.3, 14, 14.3)
+    camera.position.set(offsetX + 14.3, 13.2, 14.3)
     controls.minDistance = 14
     controls.maxDistance = 30
     controls.autoRotateSpeed = 0.35
@@ -85,7 +86,7 @@ export function createSceneCamera(config: SceneCameraConfig): SceneCameraResult 
     lastW = width
     lastH = height
     lastMobile = mobile
-    lookAt.set(offsetX, 0, 0)
+    lookAt.set(offsetX, mobile ? 0 : -1.75, 0)
     applyCameraSettings(camera, controls, width, height, offsetX, mobile)
   }
 

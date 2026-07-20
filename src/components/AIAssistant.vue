@@ -6,14 +6,14 @@
 import { ref, nextTick, watch, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAssistantStore } from '@/stores/assistant'
-import { useIsMobile } from '@/composables/useMediaQuery'
+import { usePreferCampusGrid } from '@/composables/useMediaQuery'
 import gsap from 'gsap'
 
 const store = useAssistantStore()
 const router = useRouter()
 const route = useRoute()
-const isMobile = useIsMobile()
-const showFab = computed(() => !(isMobile.value && route.path === '/'))
+const preferGrid = usePreferCampusGrid()
+const showFab = computed(() => !(preferGrid.value && route.path === '/'))
 const input = ref('')
 const chatRef = ref<HTMLElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)

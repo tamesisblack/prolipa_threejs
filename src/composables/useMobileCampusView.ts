@@ -1,6 +1,6 @@
 /**
- * Preferencia de vista: islas 3D (default) o tarjetas.
- * Persiste en localStorage entre recargas.
+ * Preferencia de vista en desktop (≥1024px): islas 3D (default) o tarjetas.
+ * En móvil y tablet siempre se usan tarjetas (ver CampusPage).
  */
 
 import { ref, watch } from 'vue'

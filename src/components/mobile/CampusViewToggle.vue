@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * Chip de vista: islas 3D (default) vs tarjetas.
- * Visible en móvil y desktop; guarda preferencia en localStorage.
+ * Selector de vista: islas 3D vs tarjetas (solo desktop).
  */
 import { computed } from 'vue'
 import { useMobileCampusView } from '@/composables/useMobileCampusView'
@@ -9,15 +8,18 @@ import { useMobileCampusView } from '@/composables/useMobileCampusView'
 const { view, setSpheres } = useMobileCampusView()
 
 const isSpheres = computed(() => view.value === 'spheres')
+
+defineProps<{ compact?: boolean }>()
 </script>
 
 <template>
   <div
     class="campus-view-toggle"
+    :class="{ 'is-compact': compact }"
     role="group"
     aria-label="Tipo de vista del campus"
   >
-    <span class="campus-view-label">Vista</span>
+    <span v-if="!compact" class="campus-view-label">Vista</span>
 
     <button
       type="button"
@@ -97,5 +99,18 @@ const isSpheres = computed(() => view.value === 'spheres')
     min-height: 2.25rem;
     font-size: 0.75rem;
   }
+}
+
+.campus-view-toggle.is-compact {
+  gap: 0.25rem;
+  padding: 0.25rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+}
+
+.campus-view-toggle.is-compact .campus-view-option {
+  min-height: 2rem;
+  padding: 0 0.625rem;
+  font-size: 0.6875rem;
+  gap: 0.25rem;
 }
 </style>

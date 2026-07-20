@@ -3,17 +3,25 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useAssistantStore } from '@/stores/assistant'
+import CampusViewToggle from '@/components/mobile/CampusViewToggle.vue'
+import { useMobileCampusView } from '@/composables/useMobileCampusView'
+import { useIsDesktopCampus } from '@/composables/useMediaQuery'
 
 const route = useRoute()
 const router = useRouter()
 const dashboard = useDashboardStore()
 const assistant = useAssistantStore()
+const { view: campusView } = useMobileCampusView()
+const isDesktopCampus = useIsDesktopCampus()
 
 const helpOpen = ref(false)
 const userOpen = ref(false)
 const notifOpen = ref(false)
 
 const isHome = computed(() => route.path === '/')
+const showWelcomeBanner = computed(
+  () => isHome.value && campusView.value === 'grid' && isDesktopCampus.value,
+)
 const pageTitle = computed(() => (route.meta.title as string) ?? 'Campus Virtual')
 const user = computed(() => dashboard.data?.user)
 const unreadCount = computed(() => dashboard.unreadNotifications)
@@ -62,38 +70,34 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
 </script>
 
 <template>
-  <header class="app-header pointer-events-none absolute inset-x-0 top-0 z-40 px-4 py-3 lg:px-6">
-    <div class="pointer-events-auto flex items-center justify-between gap-3">
-      <!-- Logo -->
-      <div class="flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/60 bg-white/80 px-3 py-2 shadow-sm backdrop-blur-md">
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-emerald-500 text-sm font-bold text-white">
-          P
+  <header
+    class="app-header pointer-events-none absolute inset-x-0 top-0 z-40 px-4 py-3 lg:px-6"
+    :class="{
+      'app-header--home': showWelcomeBanner,
+      'app-header--home-compact': isHome && !showWelcomeBanner,
+    }"
+  >
+    <div class="header-inner pointer-events-auto">
+      <div class="header-bar flex items-center justify-between gap-3">
+        <!-- Logo -->
+        <div class="flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/60 bg-white/80 px-3 py-2 shadow-sm backdrop-blur-md">
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-emerald-500 text-sm font-bold text-white">
+            P
+          </div>
+          <div class="hidden sm:block">
+            <p class="text-sm font-bold text-slate-800">Prolipa</p>
+            <p class="text-[10px] text-slate-500">Campus Virtual Docentes</p>
+          </div>
         </div>
-        <div class="hidden sm:block">
-          <p class="text-sm font-bold text-slate-800">Prolipa</p>
-          <p class="text-[10px] text-slate-500">Campus Virtual Docentes</p>
+
+        <div v-if="!isHome" class="min-w-0 flex-1 text-center">
+          <span class="rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md">
+            {{ pageTitle }}
+          </span>
         </div>
-      </div>
 
-      <!-- Saludo central -->
-      <div
-        v-if="isHome"
-        class="hidden max-w-md flex-1 rounded-full border border-white/60 bg-white/75 px-5 py-2.5 text-center shadow-sm backdrop-blur-md md:block lg:max-w-xl"
-      >
-        <p class="text-xs text-slate-600">
-          ¡Hola, Docente! Bienvenido a tu campus virtual.
-          <span class="hidden lg:inline"> Explora, crea y transforma.</span>
-        </p>
-      </div>
-
-      <div v-else-if="!isHome" class="flex-1 text-center">
-        <span class="rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md">
-          {{ pageTitle }}
-        </span>
-      </div>
-
-      <!-- Acciones derecha -->
-      <div class="flex shrink-0 items-center gap-2">
+        <!-- Acciones derecha -->
+        <div class="flex shrink-0 items-center gap-2">
         <button
           v-if="!isHome"
           type="button"
@@ -104,6 +108,8 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
         </button>
 
         <template v-if="isHome">
+          <CampusViewToggle compact class="hidden lg:inline-flex" />
+
           <!-- Notificaciones -->
           <div class="relative hidden sm:block" data-header-menu>
             <button
@@ -228,11 +234,119 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
           </Transition>
         </div>
       </div>
+      </div>
+
+      <!-- Saludo — solo en vista tarjetas (desktop) -->
+      <Transition name="welcome">
+        <div v-if="showWelcomeBanner" class="welcome-banner hidden lg:block">
+          <p class="welcome-kicker">Campus Virtual</p>
+          <h1 class="welcome-title">
+            <span class="welcome-title-text">¡Hola, Docente!</span>
+            <span class="welcome-wave" aria-hidden="true">👋</span>
+          </h1>
+          <p class="welcome-subtitle">
+            Bienvenido a tu campus virtual.
+            <span class="hidden lg:inline"> · Explora, crea y transforma.</span>
+          </p>
+        </div>
+      </Transition>
     </div>
   </header>
 </template>
 
 <style scoped>
+.header-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.app-header--home {
+  padding-bottom: 0.5rem;
+}
+
+.app-header--home-compact {
+  padding-bottom: 0.25rem;
+}
+
+.app-header--home::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(15, 23, 42, 0.94) 0%,
+    rgba(15, 23, 42, 0.82) 72%,
+    rgba(15, 23, 42, 0) 100%
+  );
+}
+
+.app-header--home-compact::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(15, 23, 42, 0.5) 0%,
+    rgba(15, 23, 42, 0.15) 55%,
+    rgba(15, 23, 42, 0) 100%
+  );
+}
+
+.welcome-banner {
+  padding: 0 0.5rem;
+  text-align: center;
+}
+
+.welcome-kicker {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #818cf8;
+}
+
+.welcome-title {
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.welcome-title-text {
+  background: linear-gradient(135deg, #ffffff 0%, #c7d2fe 55%, #a5b4fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.welcome-wave {
+  font-size: 1rem;
+  filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.35));
+}
+
+.welcome-subtitle {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+@media (min-width: 1024px) {
+  .welcome-title {
+    font-size: 1.125rem;
+  }
+}
+
 .header-dropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -261,5 +375,16 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
 .menu-leave-to {
   opacity: 0;
   transform: translateY(-6px);
+}
+
+.welcome-enter-active,
+.welcome-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.welcome-enter-from,
+.welcome-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 </style>
