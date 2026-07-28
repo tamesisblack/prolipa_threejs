@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * Campus 2D Espacial — Islas flotantes con pan/zoom interactivo.
- * Arrastrar para mover, scroll para zoom, botón para recentrar.
+ * Campus 2D Espacial — Islas en órbita con ruleta (arrastrar ↔), pan vertical y zoom.
  */
 import { useRouter } from 'vue-router'
 import { CAMPUS_MODULES } from '@/config/modules'
@@ -43,17 +42,67 @@ const ISLAND_ORDER = [
   'multimedia',
 ] as const
 
-function orbitPosition(index: number, total: number) {
-  const angle = (index / total) * Math.PI * 2 - Math.PI / 2
+/** Ángulo entre islas y rotación tipo ruleta */
+const ORBIT_STEP = (Math.PI * 2) / ISLAND_ORDER.length
+const orbitRotation = ref(0)
+const isSnapping = ref(false)
+let orbitStart = 0
+let snapTimer: ReturnType<typeof setTimeout> | null = null
+
+function getIslandPosition(modId: string) {
+  const idx = ISLAND_ORDER.indexOf(modId as (typeof ISLAND_ORDER)[number])
+  if (idx < 0) return { top: '50%', left: '50%' }
+  const angle = idx * ORBIT_STEP - Math.PI / 2 + orbitRotation.value
   return {
     left: `${HUB_CENTER.x + ORBIT_RADIUS * Math.cos(angle)}%`,
     top: `${HUB_CENTER.y + ORBIT_RADIUS * Math.sin(angle)}%`,
   }
 }
 
-const islandPositions: Record<string, { top: string; left: string }> = Object.fromEntries(
-  ISLAND_ORDER.map((id, i) => [id, orbitPosition(i, ISLAND_ORDER.length)]),
-)
+function snapOrbit() {
+  if (snapTimer) clearTimeout(snapTimer)
+  isSnapping.value = true
+  orbitRotation.value = Math.round(orbitRotation.value / ORBIT_STEP) * ORBIT_STEP
+  snapTimer = setTimeout(() => {
+    isSnapping.value = false
+    snapTimer = null
+  }, 520)
+}
+
+const frontModuleId = computed(() => {
+  let bestId: (typeof ISLAND_ORDER)[number] = ISLAND_ORDER[0]
+  let bestDist = Infinity
+  ISLAND_ORDER.forEach((id, idx) => {
+    const angle = idx * ORBIT_STEP - Math.PI / 2 + orbitRotation.value
+    let diff = angle + Math.PI / 2
+    while (diff > Math.PI) diff -= Math.PI * 2
+    while (diff < -Math.PI) diff += Math.PI * 2
+    const dist = Math.abs(diff)
+    if (dist < bestDist) {
+      bestDist = dist
+      bestId = id
+    }
+  })
+  return bestId
+})
+
+/** Isla elegida por el docente — resalta la línea de conexión */
+const hoveredModuleId = ref<string | null>(null)
+const selectedModuleId = ref<string | null>(null)
+const activeLineId = computed(() => hoveredModuleId.value ?? selectedModuleId.value ?? frontModuleId.value)
+
+function focusIsland(modId: string) {
+  const idx = ISLAND_ORDER.indexOf(modId as (typeof ISLAND_ORDER)[number])
+  if (idx < 0) return
+  selectedModuleId.value = modId
+  if (snapTimer) clearTimeout(snapTimer)
+  isSnapping.value = true
+  orbitRotation.value = -idx * ORBIT_STEP
+  snapTimer = setTimeout(() => {
+    isSnapping.value = false
+    snapTimer = null
+  }, 520)
+}
 
 /** Distancia del centro de isla a la etiqueta (px) — siempre arriba */
 const LABEL_OFFSET_Y = 98
@@ -94,13 +143,32 @@ function setPan(x: number, y: number) {
 
 function onPointerDown(e: PointerEvent) {
   const target = e.target as HTMLElement
-  // No iniciar pan al hacer clic en islas ni controles fijos
-  if (target.closest('.welcome-bar, .recenter-btn, .island-visual, .island-label-anchor')) return
+  if (target.closest('.welcome-bar, .recenter-btn')) return
+
+  const islandEl = target.closest('[data-island-id]') as HTMLElement | null
+  if (islandEl?.dataset.islandId) {
+    selectedModuleId.value = islandEl.dataset.islandId
+  }
+
   isDragging.value = true
   hasDragged.value = false
   dragStart = { x: e.clientX, y: e.clientY }
   panStart = { x: pan.x, y: pan.y }
+  orbitStart = orbitRotation.value
+  if (isSnapping.value) {
+    isSnapping.value = false
+    if (snapTimer) {
+      clearTimeout(snapTimer)
+      snapTimer = null
+    }
+  }
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+}
+
+function orbitDragSensitivity() {
+  const el = campusRef.value
+  if (!el) return 0.004
+  return (Math.PI * 2) / el.clientWidth
 }
 
 function onPointerMove(e: PointerEvent) {
@@ -108,10 +176,15 @@ function onPointerMove(e: PointerEvent) {
   const dx = e.clientX - dragStart.x
   const dy = e.clientY - dragStart.y
   if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasDragged.value = true
-  setPan(panStart.x + dx, panStart.y + dy)
+  orbitRotation.value = orbitStart - dx * orbitDragSensitivity()
+  setPan(panStart.x, panStart.y + dy)
 }
 
 function onPointerUp() {
+  if (isDragging.value && hasDragged.value) {
+    snapOrbit()
+    selectedModuleId.value = frontModuleId.value
+  }
   isDragging.value = false
 }
 
@@ -126,6 +199,17 @@ function resetView() {
   pan.x = 0
   pan.y = 0
   zoom.value = 1
+  orbitRotation.value = 0
+  selectedModuleId.value = null
+}
+
+function onIslandActivate(mod: CampusModule) {
+  if (hasDragged.value) return
+  if (frontModuleId.value === mod.id) {
+    openModule(mod)
+  } else {
+    focusIsland(mod.id)
+  }
 }
 
 // Touch support
@@ -158,6 +242,7 @@ onMounted(() => {
 onUnmounted(() => {
   campusRef.value?.removeEventListener('wheel', onWheel)
   window.removeEventListener('resize', clampPan)
+  if (snapTimer) clearTimeout(snapTimer)
 })
 
 // Transform computado
@@ -179,10 +264,8 @@ function hasIslandImage(modId: string): boolean {
 }
 
 // Línea activa al pasar el cursor cerca de una isla
-const hoveredModuleId = ref<string | null>(null)
-
 function lineCoords(modId: string) {
-  const pos = islandPositions[modId]
+  const pos = getIslandPosition(modId)
   if (!pos) return null
   return {
     x1: HUB_CENTER.x * 10,
@@ -201,7 +284,7 @@ function setHoveredModule(modId: string | null) {
   <div
     ref="campusRef"
     class="space-campus"
-    :class="{ 'is-dragging': isDragging }"
+    :class="{ 'is-dragging': isDragging, 'is-orbit-snapping': isSnapping }"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
@@ -228,15 +311,19 @@ function setHoveredModule(modId: string | null) {
     <!-- Mundo paneable — todo el contenido interactivo -->
     <div class="world" :style="{ transform: worldTransform }">
 
-      <!-- Centro PROLIPA — planeta azul -->
-      <div class="central-hub" :class="{ 'hub-energized': !!hoveredModuleId }">
+      <!-- Centro PROLIPA — mundo 3D holográfico -->
+      <div class="central-hub" :class="{ 'hub-energized': !!activeLineId }">
         <div class="hub-atmosphere" />
         <div class="hub-orbit hub-orbit-h" />
         <div class="hub-orbit hub-orbit-v" />
-        <div class="hub-platform" />
-        <div class="hub-sphere">
-          <div class="hub-sphere-shine" />
-          <div class="hub-sphere-continents" aria-hidden="true" />
+        <div class="hub-world">
+          <div class="hub-world-glow" />
+          <img
+            src="/hub/prolipa-mundo.png"
+            alt="Mundo Prolipa"
+            class="hub-world-img"
+            loading="eager"
+          />
           <div class="hub-sphere-content">
             <span class="hub-sphere-letter">P</span>
             <p class="hub-title">PROLIPA</p>
@@ -289,7 +376,10 @@ function setHoveredModule(modId: string | null) {
           v-for="mod in visibleModules"
           :key="`line-${mod.id}`"
           class="connection-group"
-          :class="{ 'is-active': hoveredModuleId === mod.id, 'is-dimmed': hoveredModuleId && hoveredModuleId !== mod.id }"
+          :class="{
+            'is-active': activeLineId === mod.id,
+            'is-dimmed': activeLineId && activeLineId !== mod.id,
+          }"
         >
           <template v-if="lineCoords(mod.id)">
             <line
@@ -337,17 +427,21 @@ function setHoveredModule(modId: string | null) {
         v-for="(mod, idx) in visibleModules"
         :key="`${mod.id}-visual`"
         class="island-visual"
-        :class="{ 'is-hovered': hoveredModuleId === mod.id }"
+        :data-island-id="mod.id"
+        :class="{
+          'is-hovered': hoveredModuleId === mod.id,
+          'is-front': frontModuleId === mod.id,
+          'is-selected': selectedModuleId === mod.id,
+        }"
         :style="{
-          top: islandPositions[mod.id]?.top ?? '50%',
-          left: islandPositions[mod.id]?.left ?? '50%',
+          top: getIslandPosition(mod.id).top,
+          left: getIslandPosition(mod.id).left,
           animationDelay: `${idx * -0.8}s`,
           '--island-color': mod.color,
         }"
-        @pointerdown.stop
         @mouseenter="setHoveredModule(mod.id)"
         @mouseleave="setHoveredModule(null)"
-        @click.stop="openModule(mod)"
+        @click.stop="onIslandActivate(mod)"
       >
         <div class="island-underglow" :style="{ background: `radial-gradient(circle, ${mod.color}40, transparent 70%)` }" />
         <div class="island-img-wrap">
@@ -369,18 +463,22 @@ function setHoveredModule(modId: string | null) {
         v-for="(mod, idx) in visibleModules"
         :key="`${mod.id}-label`"
         class="island-label-anchor"
-        :class="{ 'is-hovered': hoveredModuleId === mod.id }"
+        :data-island-id="mod.id"
+        :class="{
+          'is-hovered': hoveredModuleId === mod.id,
+          'is-front': frontModuleId === mod.id,
+          'is-selected': selectedModuleId === mod.id,
+        }"
         :style="{
-          top: islandPositions[mod.id]?.top ?? '50%',
-          left: islandPositions[mod.id]?.left ?? '50%',
+          top: getIslandPosition(mod.id).top,
+          left: getIslandPosition(mod.id).left,
           '--island-color': mod.color,
           '--label-offset': `${LABEL_OFFSET_Y}px`,
           animationDelay: `${idx * -0.8}s`,
         }"
-        @pointerdown.stop
         @mouseenter="setHoveredModule(mod.id)"
         @mouseleave="setHoveredModule(null)"
-        @click.stop="openModule(mod)"
+        @click.stop="onIslandActivate(mod)"
       >
         <div class="island-label">
           <div class="island-label-icon" :style="{ backgroundColor: mod.color + '33', boxShadow: `0 0 12px ${mod.color}44` }">
@@ -389,6 +487,7 @@ function setHoveredModule(modId: string | null) {
           <div class="island-label-text">
             <p class="island-label-name">{{ mod.name }}</p>
             <p class="island-label-sub">{{ mod.subtitle }}</p>
+            <p v-if="frontModuleId === mod.id" class="island-enter-hint">Haz clic para entrar ›</p>
           </div>
           <span class="island-label-arrow">›</span>
         </div>
@@ -412,7 +511,7 @@ function setHoveredModule(modId: string | null) {
       <span class="welcome-dot" />
       <p class="welcome-text">
         <strong>Bienvenido de vuelta, {{ user?.name?.split(' ')[0] ?? 'Docente' }}</strong>
-        <span class="welcome-sub"> · Hoy es un excelente día para inspirar y transformar.</span>
+        <span class="welcome-sub"> · Clic en una isla para elegirla · arrastra para girar · clic otra vez para entrar.</span>
       </p>
     </div>
   </div>
@@ -497,7 +596,7 @@ function setHoveredModule(modId: string | null) {
   transition: none;
 }
 
-/* ===== CENTRAL HUB — PLANETA AZUL PROLIPA ===== */
+/* ===== CENTRAL HUB — MUNDO 3D PROLIPA ===== */
 .central-hub {
   position: absolute;
   top: 50%;
@@ -506,31 +605,29 @@ function setHoveredModule(modId: string | null) {
   z-index: 11;
   text-align: center;
   pointer-events: none;
-  width: 200px;
-  height: 200px;
+  width: 280px;
+  height: 320px;
 }
 
-/* Atmósfera azul alrededor del planeta */
 .hub-atmosphere {
   position: absolute;
-  top: 38%;
+  top: 28%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 190px;
-  height: 190px;
+  width: 220px;
+  height: 220px;
   border-radius: 50%;
   background: radial-gradient(circle,
-    rgba(56,189,248,0.25) 0%,
-    rgba(14,165,233,0.12) 45%,
-    transparent 70%);
-  filter: blur(8px);
+    rgba(56,189,248,0.28) 0%,
+    rgba(14,165,233,0.14) 45%,
+    transparent 72%);
+  filter: blur(10px);
   animation: hub-pulse 4s ease-in-out infinite;
 }
 
-/* Anillos orbitales sutiles */
 .hub-orbit {
   position: absolute;
-  top: 38%;
+  top: 28%;
   left: 50%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
@@ -539,119 +636,100 @@ function setHoveredModule(modId: string | null) {
 }
 
 .hub-orbit-h {
-  width: 150px;
-  height: 44px;
-  border-color: rgba(56,189,248,0.3);
+  width: 190px;
+  height: 52px;
+  border-color: rgba(56,189,248,0.28);
   animation: ring-spin-h 10s linear infinite;
-  box-shadow: 0 0 12px rgba(14,165,233,0.15);
+  box-shadow: 0 0 14px rgba(14,165,233,0.18);
 }
 .hub-orbit-v {
-  width: 130px;
-  height: 130px;
-  border-color: rgba(14,165,233,0.15);
+  width: 168px;
+  height: 168px;
+  border-color: rgba(14,165,233,0.16);
   animation: ring-spin-v 14s linear infinite;
   border-style: dashed;
 }
 
-/* Plataforma base */
-.hub-platform {
+.hub-world {
   position: absolute;
-  top: 52%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotateX(70deg);
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  border: 1px solid rgba(56,189,248,0.2);
-  background: radial-gradient(ellipse,
-    rgba(14,165,233,0.08) 0%,
-    transparent 60%);
-  box-shadow: 0 0 30px rgba(14,165,233,0.1);
-  z-index: 0;
-}
-
-/* Planeta azul */
-.hub-sphere {
-  position: absolute;
-  top: 38%;
+  top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 118px;
-  height: 118px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 32% 28%, rgba(255,255,255,0.5), transparent 28%),
-    radial-gradient(circle at 68% 72%, rgba(16,185,129,0.35), transparent 32%),
-    radial-gradient(circle at 22% 62%, rgba(34,197,94,0.28), transparent 28%),
-    radial-gradient(circle at 55% 40%, rgba(56,189,248,0.2), transparent 40%),
-    linear-gradient(145deg, #082f49 0%, #0369a1 30%, #0284c7 55%, #0ea5e9 75%, #075985 100%);
-  box-shadow:
-    0 0 35px rgba(14,165,233,0.65),
-    0 0 70px rgba(2,132,199,0.3),
-    inset 0 -10px 22px rgba(0,0,0,0.35),
-    inset 0 4px 12px rgba(255,255,255,0.08);
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.hub-sphere-continents {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background:
-    radial-gradient(ellipse 30% 20% at 35% 45%, rgba(34,197,94,0.45), transparent),
-    radial-gradient(ellipse 22% 18% at 62% 38%, rgba(16,185,129,0.35), transparent),
-    radial-gradient(ellipse 18% 14% at 48% 68%, rgba(52,211,153,0.3), transparent);
-  opacity: 0.85;
-}
-
-.hub-sphere-shine {
-  position: absolute;
-  top: -5%;
-  left: -5%;
-  width: 75%;
-  height: 55%;
-  border-radius: 50%;
-  background: linear-gradient(155deg,
-    rgba(255,255,255,0.45) 0%,
-    rgba(255,255,255,0.08) 55%,
-    transparent 100%);
-  transform: rotate(-20deg);
+  width: 260px;
+  height: 260px;
   z-index: 2;
+  animation: float-hub 7s ease-in-out infinite;
+}
+
+.hub-world-glow {
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 180px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(14,165,233,0.45), transparent 70%);
+  filter: blur(18px);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.hub-world-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center center;
+  mix-blend-mode: screen;
+  filter: saturate(1.18) contrast(1.08) brightness(1.06);
+  -webkit-mask-image: radial-gradient(
+    ellipse 78% 78% at 50% 42%,
+    rgba(0, 0, 0, 1) 18%,
+    rgba(0, 0, 0, 0.9) 52%,
+    transparent 76%
+  );
+  mask-image: radial-gradient(
+    ellipse 78% 78% at 50% 42%,
+    rgba(0, 0, 0, 1) 18%,
+    rgba(0, 0, 0, 0.9) 52%,
+    transparent 76%
+  );
+  pointer-events: none;
 }
 
 .hub-sphere-content {
-  position: relative;
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  pointer-events: none;
 }
 
 .hub-sphere-letter {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 900;
   color: white;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 20px rgba(186,230,253,0.5);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.55), 0 0 24px rgba(186,230,253,0.65);
   line-height: 1;
 }
 
 .hub-title {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.22em;
   color: white;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.5);
+  text-shadow: 0 1px 8px rgba(0,0,0,0.6), 0 0 16px rgba(56,189,248,0.5);
   margin: 0;
 }
 
 .hub-subtitle {
   position: absolute;
-  top: 58%;
+  top: 78%;
   bottom: auto;
   left: 50%;
   transform: translateX(-50%);
@@ -668,36 +746,37 @@ function setHoveredModule(modId: string | null) {
 
 .central-hub.hub-energized .hub-atmosphere {
   opacity: 1;
-  transform: translate(-50%, -50%) scale(1.1);
+  transform: translate(-50%, -50%) scale(1.12);
   transition: opacity 1s cubic-bezier(0.22, 1, 0.36, 1), transform 1s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.central-hub.hub-energized .hub-sphere {
-  box-shadow:
-    0 0 45px rgba(14,165,233,0.85),
-    0 0 90px rgba(2,132,199,0.45),
-    inset 0 -10px 22px rgba(0,0,0,0.35),
-    inset 0 4px 12px rgba(255,255,255,0.08);
-  transition: box-shadow 1s cubic-bezier(0.22, 1, 0.36, 1);
+.central-hub.hub-energized .hub-world-img {
+  filter: saturate(1.32) contrast(1.12) brightness(1.12);
+  transition: filter 1s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.central-hub.hub-energized .hub-platform {
-  box-shadow: 0 0 45px rgba(14,165,233,0.35);
-  border-color: rgba(56,189,248,0.45);
-  transition: box-shadow 1s cubic-bezier(0.22, 1, 0.36, 1), border-color 1s cubic-bezier(0.22, 1, 0.36, 1);
+.central-hub.hub-energized .hub-world-glow {
+  opacity: 1;
+  filter: blur(22px);
+  transition: opacity 1s cubic-bezier(0.22, 1, 0.36, 1), filter 1s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .hub-atmosphere,
-.hub-sphere,
-.hub-platform {
+.hub-world,
+.hub-world-glow {
   transition:
     opacity 1s cubic-bezier(0.22, 1, 0.36, 1),
     transform 1s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 1s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 1s cubic-bezier(0.22, 1, 0.36, 1);
+    filter 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes float-hub {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+  50% { transform: translate(-50%, -50%) translateY(-8px); }
 }
 
 @keyframes hub-pulse {
-  0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
-  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  0%, 100% { opacity: 0.65; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
 }
 @keyframes beam-pulse {
   0%, 100% { opacity: 0.6; }
@@ -796,6 +875,34 @@ function setHoveredModule(modId: string | null) {
   position: absolute;
   transform: translate(-50%, -50%);
   cursor: pointer;
+}
+
+.space-campus.is-orbit-snapping .island-visual,
+.space-campus.is-orbit-snapping .island-label-anchor {
+  transition:
+    top 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.island-label-anchor.is-front .island-label {
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--island-color) 35%, transparent),
+    0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.island-visual.is-selected .island-img-wrap,
+.island-visual.is-front .island-img-wrap {
+  transform: scale(1.06);
+}
+
+.island-enter-hint {
+  margin: 4px 0 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--island-color) 85%, white);
+  opacity: 0.95;
 }
 
 .island-visual {
