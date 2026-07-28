@@ -2,31 +2,22 @@
 /**
  * Página principal — islas 3D en desktop / tarjetas en móvil y tablet.
  */
-import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import DashboardPanel from '@/components/DashboardPanel.vue'
 import MobileCampusHome from '@/components/mobile/MobileCampusHome.vue'
 import { usePreferCampusGrid } from '@/composables/useMediaQuery'
 import { useMobileCampusView } from '@/composables/useMobileCampusView'
 
-const CampusScene = defineAsyncComponent(
-  () => import('@/components/three/CampusScene.vue'),
-)
+import SpaceCampus from '@/components/SpaceCampus.vue'
 
 const preferGrid = usePreferCampusGrid()
 const { view: campusView } = useMobileCampusView()
 const effectiveView = computed(() => (preferGrid.value ? 'grid' : campusView.value))
 const panelOpen = ref(false)
-const sceneRef = ref<{ resetCamera?: () => void } | null>(null)
 
 function togglePanel() {
   panelOpen.value = !panelOpen.value
 }
-
-watch(panelOpen, (open) => {
-  if (open && !preferGrid.value) {
-    setTimeout(() => sceneRef.value?.resetCamera?.(), 400)
-  }
-})
 
 watch(preferGrid, (compact) => {
   if (compact) panelOpen.value = false
@@ -45,16 +36,9 @@ watch(preferGrid, (compact) => {
       @toggle-panel="togglePanel"
     />
 
-    <!-- Vista islas 3D — solo desktop -->
+    <!-- Vista islas espaciales — solo desktop -->
     <div v-else class="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-      <Suspense>
-        <CampusScene ref="sceneRef" :panel-open="panelOpen" />
-        <template #fallback>
-          <div class="flex h-full items-center justify-center bg-[#0f172a]">
-            <div class="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-indigo-900 border-t-indigo-400" />
-          </div>
-        </template>
-      </Suspense>
+      <SpaceCampus />
     </div>
 
     <!-- Backdrop panel — móvil y tablet -->

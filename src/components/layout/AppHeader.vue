@@ -22,7 +22,12 @@ const isHome = computed(() => route.path === '/')
 const showWelcomeBanner = computed(
   () => isHome.value && campusView.value === 'grid' && isDesktopCampus.value,
 )
-const pageTitle = computed(() => (route.meta.title as string) ?? 'Campus Virtual')
+/** Logo oscuro sobre fondo espacial (vista Islas 3D en desktop) */
+const useDarkLogo = computed(
+  () =>
+    (!isHome.value)
+    || (isHome.value && campusView.value === 'spheres' && isDesktopCampus.value),
+)
 const user = computed(() => dashboard.data?.user)
 const unreadCount = computed(() => dashboard.unreadNotifications)
 const notifications = computed(() => dashboard.data?.notifications.slice(0, 4) ?? [])
@@ -75,25 +80,30 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
     :class="{
       'app-header--home': showWelcomeBanner,
       'app-header--home-compact': isHome && !showWelcomeBanner,
+      'app-header--module': !isHome,
     }"
   >
     <div class="header-inner pointer-events-auto">
-      <div class="header-bar flex items-center justify-between gap-3">
+      <div class="header-bar flex w-full items-center justify-between gap-3">
         <!-- Logo -->
-        <div class="flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/60 bg-white/80 px-3 py-2 shadow-sm backdrop-blur-md">
+        <div
+          class="flex shrink-0 items-center gap-2.5 rounded-2xl px-3 py-2 shadow-sm backdrop-blur-md transition-colors duration-300"
+          :class="useDarkLogo
+            ? 'border border-white/10 bg-slate-900/75'
+            : 'border border-white/60 bg-white/80'"
+        >
           <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-emerald-500 text-sm font-bold text-white">
             P
           </div>
           <div class="hidden sm:block">
-            <p class="text-sm font-bold text-slate-800">Prolipa</p>
-            <p class="text-[10px] text-slate-500">Campus Virtual Docentes</p>
+            <p class="text-sm font-bold" :class="useDarkLogo ? 'text-white' : 'text-slate-800'">Prolipa</p>
+            <p
+              class="text-[10px] font-medium transition-colors duration-300"
+              :class="useDarkLogo ? 'text-sky-300' : 'text-slate-500'"
+            >
+              Campus Virtual Docentes
+            </p>
           </div>
-        </div>
-
-        <div v-if="!isHome" class="min-w-0 flex-1 text-center">
-          <span class="rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md">
-            {{ pageTitle }}
-          </span>
         </div>
 
         <!-- Acciones derecha -->
@@ -101,7 +111,7 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
         <button
           v-if="!isHome"
           type="button"
-          class="rounded-xl border border-white/60 bg-white/80 px-3 py-2 text-xs font-medium text-blue-700 shadow-sm backdrop-blur-md hover:bg-white"
+          class="rounded-xl border border-white/10 bg-slate-900/75 px-3 py-2 text-xs font-medium text-sky-300 shadow-sm backdrop-blur-md transition-colors hover:border-white/20 hover:text-white"
           @click="router.push('/')"
         >
           ← Campus
@@ -294,6 +304,20 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
     rgba(15, 23, 42, 0.5) 0%,
     rgba(15, 23, 42, 0.15) 55%,
     rgba(15, 23, 42, 0) 100%
+  );
+}
+
+.app-header--module::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(2, 6, 23, 0.85) 0%,
+    rgba(2, 6, 23, 0.4) 70%,
+    rgba(2, 6, 23, 0) 100%
   );
 }
 

@@ -117,17 +117,20 @@ function formatMessage(text: string): string {
 </script>
 
 <template>
-  <!-- Botón flotante FAB (Desktop & Móvil cuando cerrado) -->
+  <!-- Botón flotante FAB — Estilo futurista glassmorphism -->
   <button
     v-if="showFab"
     ref="fabRef"
     type="button"
-    class="ai-fab fixed z-50 flex items-center gap-2 rounded-full bg-gradient-to-br from-prolipa-500 to-edu-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95 max-md:bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] max-md:right-4 max-md:left-auto max-md:h-12 max-md:px-4 md:bottom-6 md:left-6 md:h-14 md:pl-4 md:pr-5"
+    class="ai-fab-futuristic"
     aria-label="Asistente IA"
     @click="store.toggle()"
   >
-    <span class="text-xl">✨</span>
-    <span class="text-xs font-semibold tracking-wide max-md:inline md:inline">Proli IA</span>
+    <span class="ai-fab-avatar">🤖</span>
+    <div class="ai-fab-info">
+      <span class="ai-fab-name">Proli IA</span>
+      <span class="ai-fab-sub">Tu asistente inteligente</span>
+    </div>
   </button>
 
   <!-- Panel de Chat (Móvil: estilo WhatsApp / Gemini fullscreen; PC: Tarjeta limpia con fondo blanco solid/glass) -->
@@ -355,6 +358,75 @@ function formatMessage(text: string): string {
 @media (min-width: 768px) {
   :deep(strong) {
     color: #0154a1;
+  }
+}
+
+/* ===== BOTÓN FLOTANTE FUTURISTA ===== */
+.ai-fab-futuristic {
+  position: fixed;
+  bottom: 3.5rem;
+  left: 1.25rem;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 1rem 0.5rem 0.5rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  backdrop-filter: blur(12px);
+  color: white;
+  cursor: pointer;
+  transition: border-color 0.25s, transform 0.2s, box-shadow 0.25s;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 15px rgba(99,102,241,0.1);
+  font-family: inherit;
+}
+
+.ai-fab-futuristic:hover {
+  border-color: rgba(99,102,241,0.6);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.6), 0 0 25px rgba(99,102,241,0.25);
+}
+
+.ai-fab-futuristic:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.ai-fab-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #ec4899);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  box-shadow: 0 0 10px rgba(99,102,241,0.4);
+}
+
+.ai-fab-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.ai-fab-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  line-height: 1.2;
+}
+
+.ai-fab-sub {
+  font-size: 8px;
+  color: #94a3b8;
+  line-height: 1.2;
+}
+
+@media (max-width: 1023px) {
+  .ai-fab-futuristic {
+    bottom: 4.5rem;
   }
 }
 </style>
