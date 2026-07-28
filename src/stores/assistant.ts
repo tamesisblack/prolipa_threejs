@@ -45,6 +45,10 @@ export const useAssistantStore = defineStore('assistant', () => {
     hasInteracted.value = true
   }
 
+  function close() {
+    isOpen.value = false
+  }
+
   function newChat() {
     if (isTyping.value) return
     messages.value = [createWelcomeMessage()]
@@ -55,7 +59,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     newChat()
   }
 
-  /** Simula escritura progresiva tipo ChatGPT */
+  /** Simula escritura progresiva rápida */
   async function typeMessage(fullText: string): Promise<void> {
     const msg: ChatMessage = {
       role: 'assistant',
@@ -66,11 +70,11 @@ export const useAssistantStore = defineStore('assistant', () => {
     const index = messages.value.length - 1
 
     const chars = [...fullText]
-    const chunkSize = fullText.length > 200 ? 3 : 2
+    const chunkSize = fullText.length > 200 ? 8 : 5
 
     for (let i = 0; i < chars.length; i += chunkSize) {
       messages.value[index].content += chars.slice(i, i + chunkSize).join('')
-      await new Promise((r) => setTimeout(r, 18))
+      await new Promise((r) => setTimeout(r, 6))
     }
   }
 
@@ -100,8 +104,15 @@ export const useAssistantStore = defineStore('assistant', () => {
     await typeMessage(result.message)
 
     if (result.type === 'navigate' && result.route && onNavigate) {
-      lastAction.value = result.action ?? `Navegando → ${result.route}`
-      setTimeout(() => onNavigate(result.route!), 1000)
+      const labelMatch = result.action?.replace(/^Navegando →\s*/, '') ?? ''
+      const moduleLabel = labelMatch || (result.route === '/' ? 'Campus Virtual' : result.route.slice(1))
+
+      setTimeout(async () => {
+        onNavigate(result.route!)
+        const targetText = result.route === '/' ? 'el Campus Virtual 🏠' : `${moduleLabel}`
+        lastAction.value = `✓ En ${moduleLabel}`
+        await typeMessage(`¡Listo! Ya estás en **${targetText}** ✨. ¿En qué más te puedo ayudar?`)
+      }, 500)
     }
   }
 
@@ -115,6 +126,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     messages,
     toggle,
     open,
+    close,
     newChat,
     clearChat,
     send,

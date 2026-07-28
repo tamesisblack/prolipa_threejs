@@ -10,31 +10,31 @@ const NAVIGATION_PATTERNS: Array<{
   label: string
   icon: string
 }> = [
-  {
-    keywords: [
-      'inicio',
-      'campus',
-      'home',
-      'principal',
-      'dashboard',
-      'pagina principal',
-      'pantalla principal',
-      'menu principal',
-      'menu de inicio',
-      'portada',
-    ],
-    route: '/',
-    label: 'Campus Virtual',
-    icon: '🏠',
-  },
-  { keywords: ['biblioteca', 'libro', 'libros', 'recurso'], route: '/biblioteca', label: 'Biblioteca', icon: '📚' },
-  { keywords: ['evaluacion', 'evaluaciones', 'examen', 'prueba', 'diagnostico'], route: '/evaluaciones', label: 'Evaluaciones', icon: '📝' },
-  { keywords: ['planificacion', 'planificaciones', 'clase', 'clases'], route: '/planificaciones', label: 'Planificaciones', icon: '📅' },
-  { keywords: ['certificado', 'certificados', 'diploma', 'certificacion'], route: '/certificaciones', label: 'Certificados', icon: '🏆' },
-  { keywords: ['estadistica', 'estadisticas', 'metrica', 'metricas', 'reporte'], route: '/estadisticas', label: 'Estadísticas', icon: '📈' },
-  { keywords: ['comunidad', 'foro', 'colaboracion'], route: '/comunidad', label: 'Comunidad', icon: '💬' },
-  { keywords: ['multimedia', 'video', 'videos', 'audio', 'imagen', 'galeria'], route: '/multimedia', label: 'Recursos Multimedia', icon: '🎥' },
-]
+    {
+      keywords: [
+        'inicio',
+        'campus',
+        'home',
+        'principal',
+        'dashboard',
+        'pagina principal',
+        'pantalla principal',
+        'menu principal',
+        'menu de inicio',
+        'portada',
+      ],
+      route: '/',
+      label: 'Campus Virtual',
+      icon: '🏠',
+    },
+    { keywords: ['biblioteca', 'libro', 'libros', 'recurso'], route: '/biblioteca', label: 'Biblioteca', icon: '📚' },
+    { keywords: ['evaluacion', 'evaluaciones', 'examen', 'prueba', 'diagnostico'], route: '/evaluaciones', label: 'Evaluaciones', icon: '📝' },
+    { keywords: ['planificacion', 'planificaciones', 'clase', 'clases'], route: '/planificaciones', label: 'Planificaciones', icon: '📅' },
+    { keywords: ['certificado', 'certificados', 'diploma', 'certificacion'], route: '/certificaciones', label: 'Certificados', icon: '🏆' },
+    { keywords: ['estadistica', 'estadisticas', 'metrica', 'metricas', 'reporte'], route: '/estadisticas', label: 'Estadísticas', icon: '📈' },
+    { keywords: ['comunidad', 'foro', 'colaboracion'], route: '/comunidad', label: 'Comunidad', icon: '💬' },
+    { keywords: ['multimedia', 'video', 'videos', 'audio', 'imagen', 'galeria'], route: '/multimedia', label: 'Recursos Multimedia', icon: '🎥' },
+  ]
 
 const NAV_VERBS = [
   'ir a',
@@ -129,10 +129,12 @@ export function detectNavigationIntent(message: string): IntentResult | null {
       continue
     }
 
+    const article = pattern.route === '/' ? 'al' : 'a'
+
     return {
       type: 'navigate',
       route: pattern.route,
-      message: `Perfecto, te llevo al **${pattern.label}** ${pattern.icon}`,
+      message: `Perfecto, te llevo ${article} **${pattern.label}** ${pattern.icon}`,
       confidence: 0.95,
       action: `Navegando → ${pattern.label}`,
     }

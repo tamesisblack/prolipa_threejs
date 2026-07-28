@@ -12,7 +12,6 @@ import {
 import { detectNavigationIntent } from '@/services/navigationIntent'
 import { chatWithGemini } from '@/services/GeminiProvider'
 import { chatWithOpenRouter } from '@/services/OpenRouterProvider'
-import { formatAiError } from '@/services/aiErrors'
 
 export { isAiConfigured, getAiProviderLabel }
 
@@ -23,61 +22,46 @@ export async function processAssistantMessage(
   message: string,
   history: ChatMessage[],
 ): Promise<IntentResult> {
-  const userMessage: ChatMessage = {
-    role: 'user',
-    content: message.trim(),
-    timestamp: new Date(),
-  }
-
-  const allMessages = [...history, userMessage]
-
-  // Navegación explícita — prioridad sobre la IA (ej. "regresame al dashboard")
+  // 1. Navegación explícita o intención con data quemada -> Respuesta INSTANTÁNEA
   const navIntent = detectNavigationIntent(message)
   if (navIntent) return navIntent
 
+  const localIntent = parseIntent(message)
+  if (localIntent.type !== 'unknown') {
+    return localIntent
+  }
+
+  // 2. Para preguntas complejas no quemadas, intentar IA remota con timeout máximo de 2s
   if (isAiConfigured()) {
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: message.trim(),
+      timestamp: new Date(),
+    }
+    const allMessages = [...history, userMessage]
     const provider = getAiProvider()
 
     try {
-      if (provider === 'openrouter') {
-        const result = await chatWithOpenRouter(allMessages)
-        // Si la IA no navegó pero el mensaje era claro, forzar navegación
-        if (result.type !== 'navigate') {
-          const retryNav = detectNavigationIntent(message)
-          if (retryNav) return retryNav
-        }
-        return result
-      }
-      const result = await chatWithGemini(allMessages)
-      if (result.type !== 'navigate') {
-        const retryNav = detectNavigationIntent(message)
-        if (retryNav) return retryNav
-      }
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('AI response timeout')), 2000),
+      )
+
+      const apiCall =
+        provider === 'openrouter'
+          ? chatWithOpenRouter(allMessages)
+          : chatWithGemini(allMessages)
+
+      const result = await Promise.race([apiCall, timeoutPromise])
       return result
     } catch (error) {
-      console.error(`[Proli] ${getAiProviderLabel()} falló:`, error)
-      const fallback = parseIntent(message)
-      if (fallback.type !== 'unknown') return fallback
-
-      const detail = formatAiError(error)
-
-      return {
-        type: 'info',
-        message:
-          `Tuve un problema al conectar con el **servicio de IA**.\n\n${detail}\n\nMientras tanto, prueba: "¿Qué tengo pendiente?" o "Llévame a biblioteca".`,
-        confidence: 0.4,
-        action: 'Error de conexión IA',
-      }
+      console.warn('[Proli] Fallo/timeout en IA externa, usando motor local:', error)
+      return localIntent
     }
   }
 
-  return parseIntent(message)
+  return localIntent
 }
 
-export function getThinkingDelay(message: string, useAi: boolean): number {
-  if (useAi) return 400
-  const normalized = message.toLowerCase()
-  if (/pendiente|resumen|evaluacion|notificacion/.test(normalized)) return 1200
-  if (/hola|gracias/.test(normalized)) return 700
-  return 900
+export function getThinkingDelay(_message: string, _useAi: boolean): number {
+  return 50
 }
