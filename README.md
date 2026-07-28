@@ -44,14 +44,23 @@ Los datos vienen de `src/api/mock/dashboard.ts`. Para conectar Laravel:
 2. Cambia `USE_MOCK = false` en `src/api/client.ts`
 3. Reemplaza las funciones mock por llamadas `apiGet()`
 
-## Asistente IA
+## Asistente IA (Proli)
 
-Motor de intenciones local en `src/services/IntentEngine.ts`. Ejemplos:
+1. Copia `.env.example` → `.env`
+2. Configura **OpenRouter** (recomendado) o **Gemini directo**:
 
-- "Quiero ir a libros" → `/libros`
-- "Necesito mis certificados" → `/certificados`
+```env
+AI_PROVIDER=openrouter
+AI_API_KEY=sk-or-v1-tu-key
+AI_MODEL=google/gemini-2.0-flash-001
+```
 
-Arquitectura lista para integrar OpenAI, Gemini o Claude.
+3. Reinicia `npm run dev`
+
+Proli conversa con IA y puede **navegar** por el campus ("llévame a biblioteca").
+Sin API key funciona en modo demo local.
+
+> La key en `.env` se expone en el navegador. En producción usa un proxy Laravel.
 
 ## Módulos del campus
 

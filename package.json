@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "gsap": "^3.13.0",
     "pinia": "^3.0.3",
     "three": "^0.178.0",

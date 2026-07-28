@@ -145,7 +145,9 @@ function formatMessage(text: string): string {
           </div>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-semibold text-slate-800">Proli — Asistente IA</p>
-            <p class="text-[11px] text-edu-600">● En línea · Demo interactivo</p>
+            <p class="text-[11px]" :class="store.aiEnabled ? 'text-edu-600' : 'text-slate-400'">
+              {{ store.aiEnabled ? '● En línea · Campus Virtual' : '● Modo demo' }}
+            </p>
           </div>
           <div class="flex shrink-0 items-center gap-1">
             <button

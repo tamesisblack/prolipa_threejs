@@ -5,13 +5,19 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ChatMessage, IntentResult } from '@/types'
-import { getThinkingDelay, processMessage } from '@/services/IntentEngine'
+import {
+  getThinkingDelay,
+  isAiConfigured,
+  processAssistantMessage,
+} from '@/services/assistantBrain'
 
 function createWelcomeMessage(): ChatMessage {
+  const aiOn = isAiConfigured()
   return {
     role: 'assistant',
-    content:
-      '¡Bienvenida al Campus Virtual! 👋 Soy **Proli**, tu asistente inteligente.\n\nPuedo llevarte a cualquier módulo o contarte qué tienes pendiente. ¿En qué te ayudo?',
+    content: aiOn
+      ? '¡Hola! 👋 Soy **Proli**, tu asistente inteligente del Campus Virtual.\n\nPregúntame lo que necesites o pídeme que te lleve a cualquier módulo del campus.'
+      : '¡Bienvenida al Campus Virtual! 👋 Soy **Proli**, tu asistente inteligente.\n\nPuedo llevarte a cualquier módulo o contarte qué tienes pendiente. ¿En qué te ayudo?',
     timestamp: new Date(),
   }
 }
@@ -26,6 +32,8 @@ export const useAssistantStore = defineStore('assistant', () => {
   const hasConversation = computed(() =>
     messages.value.some((m) => m.role === 'user'),
   )
+
+  const aiEnabled = computed(() => isAiConfigured())
 
   function toggle() {
     isOpen.value = !isOpen.value
@@ -79,9 +87,12 @@ export const useAssistantStore = defineStore('assistant', () => {
     })
 
     isTyping.value = true
-    await new Promise((r) => setTimeout(r, getThinkingDelay(text)))
+    const history = messages.value.slice(0, -1)
+    await new Promise((r) =>
+      setTimeout(r, getThinkingDelay(text, isAiConfigured())),
+    )
 
-    const result: IntentResult = processMessage(text)
+    const result: IntentResult = await processAssistantMessage(text, history)
     isTyping.value = false
 
     if (result.action) lastAction.value = result.action
@@ -99,6 +110,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     isTyping,
     hasInteracted,
     hasConversation,
+    aiEnabled,
     lastAction,
     messages,
     toggle,

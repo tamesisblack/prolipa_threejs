@@ -6,6 +6,7 @@
 
 import { mockDashboardData } from '@/api/mock/dashboard'
 import type { AIProvider, ChatMessage, IntentResult } from '@/types'
+import { detectNavigationIntent } from '@/services/navigationIntent'
 
 const DATA = mockDashboardData
 
@@ -155,7 +156,10 @@ function buildHelpInfo(): string {
 }
 
 function tryNavigation(normalized: string): IntentResult | null {
-  // Priorizar frases de navegación explícita
+  return detectNavigationIntent(normalized) ?? legacyTryNavigation(normalized)
+}
+
+function legacyTryNavigation(normalized: string): IntentResult | null {
   const navTriggers = ['ir a', 'lleva', 'llevame', 'llévame', 'abre', 'mostrar', 'ver ', 'necesito', 'quiero']
   const isNavIntent = navTriggers.some((t) => normalized.includes(t)) || normalized.startsWith('ir ')
 
@@ -189,6 +193,9 @@ function tryNavigation(normalized: string): IntentResult | null {
  */
 export function parseIntent(message: string): IntentResult {
   const normalized = normalize(message)
+
+  const nav = detectNavigationIntent(message)
+  if (nav) return nav
 
   // Saludos
   if (hasAny(normalized, ['hola', 'buenos dias', 'buenas tardes', 'buenas noches', 'hey', 'ola'])) {
@@ -301,9 +308,9 @@ export function parseIntent(message: string): IntentResult {
     }
   }
 
-  // Navegación
-  const nav = tryNavigation(normalized)
-  if (nav) return nav
+  // Navegación (respaldo)
+  const navLegacy = tryNavigation(normalized)
+  if (navLegacy) return navLegacy
 
   return {
     type: 'unknown',
