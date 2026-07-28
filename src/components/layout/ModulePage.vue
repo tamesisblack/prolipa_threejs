@@ -80,7 +80,7 @@ const forumPosts = [
 </script>
 
 <template>
-  <div class="module-page relative min-h-full w-full overflow-y-auto bg-slate-950 px-4 pb-12 pt-[5.5rem] text-slate-100 lg:px-10 lg:pt-[6rem]">
+  <div class="module-page custom-scroll relative h-full w-full overflow-y-auto overflow-x-hidden bg-slate-950 px-4 pb-12 pt-[5.5rem] text-slate-100 lg:px-10 lg:pt-[6rem]">
     <!-- Fondo ambiental dinámico con resplandor del color del módulo -->
     <div
       class="pointer-events-none fixed inset-0 z-0 opacity-20 blur-[100px]"

@@ -5,12 +5,12 @@ import AIAssistant from '@/components/AIAssistant.vue'
 </script>
 
 <template>
-  <div class="app-layout relative h-full w-full overflow-hidden">
+  <div class="app-layout relative flex h-full w-full flex-col overflow-hidden">
     <AppHeader />
-    <main class="h-full w-full">
+    <main class="min-h-0 flex-1 overflow-hidden">
       <RouterView v-slot="{ Component }">
         <Transition name="page" mode="out-in">
-          <component :is="Component" />
+          <component :is="Component" class="h-full" />
         </Transition>
       </RouterView>
     </main>
