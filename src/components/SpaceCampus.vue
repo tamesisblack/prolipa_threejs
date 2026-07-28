@@ -91,19 +91,6 @@ const hoveredModuleId = ref<string | null>(null)
 const selectedModuleId = ref<string | null>(null)
 const activeLineId = computed(() => hoveredModuleId.value ?? selectedModuleId.value ?? frontModuleId.value)
 
-function focusIsland(modId: string) {
-  const idx = ISLAND_ORDER.indexOf(modId as (typeof ISLAND_ORDER)[number])
-  if (idx < 0) return
-  selectedModuleId.value = modId
-  if (snapTimer) clearTimeout(snapTimer)
-  isSnapping.value = true
-  orbitRotation.value = -idx * ORBIT_STEP
-  snapTimer = setTimeout(() => {
-    isSnapping.value = false
-    snapTimer = null
-  }, 520)
-}
-
 /** Distancia del centro de isla a la etiqueta (px) — siempre arriba */
 const LABEL_OFFSET_Y = 98
 
@@ -112,6 +99,9 @@ const pan = reactive({ x: 0, y: 0 })
 const zoom = ref(1)
 const isDragging = ref(false)
 const hasDragged = ref(false)
+const DRAG_THRESHOLD = 10
+let dragArmed = false
+let pendingModule: CampusModule | null = null
 let dragStart = { x: 0, y: 0 }
 let panStart = { x: 0, y: 0 }
 
@@ -141,17 +131,10 @@ function setPan(x: number, y: number) {
   clampPan()
 }
 
-function onPointerDown(e: PointerEvent) {
-  const target = e.target as HTMLElement
-  if (target.closest('.welcome-bar, .recenter-btn')) return
-
-  const islandEl = target.closest('[data-island-id]') as HTMLElement | null
-  if (islandEl?.dataset.islandId) {
-    selectedModuleId.value = islandEl.dataset.islandId
-  }
-
-  isDragging.value = true
+function beginPointerSession(e: PointerEvent) {
   hasDragged.value = false
+  isDragging.value = false
+  dragArmed = true
   dragStart = { x: e.clientX, y: e.clientY }
   panStart = { x: pan.x, y: pan.y }
   orbitStart = orbitRotation.value
@@ -162,7 +145,22 @@ function onPointerDown(e: PointerEvent) {
       snapTimer = null
     }
   }
-  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  campusRef.value?.setPointerCapture(e.pointerId)
+}
+
+function onPointerDown(e: PointerEvent) {
+  const target = e.target as HTMLElement
+  if (target.closest('.welcome-bar, .recenter-btn, .island-visual, .island-label-anchor')) return
+
+  pendingModule = null
+  beginPointerSession(e)
+}
+
+function onIslandPointerDown(e: PointerEvent, mod: CampusModule) {
+  e.stopPropagation()
+  pendingModule = mod
+  selectedModuleId.value = mod.id
+  beginPointerSession(e)
 }
 
 function orbitDragSensitivity() {
@@ -172,20 +170,37 @@ function orbitDragSensitivity() {
 }
 
 function onPointerMove(e: PointerEvent) {
-  if (!isDragging.value) return
+  if (!dragArmed) return
+
   const dx = e.clientX - dragStart.x
   const dy = e.clientY - dragStart.y
-  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasDragged.value = true
-  orbitRotation.value = orbitStart - dx * orbitDragSensitivity()
-  setPan(panStart.x, panStart.y + dy)
+
+  if (!isDragging.value) {
+    if (Math.abs(dx) <= DRAG_THRESHOLD && Math.abs(dy) <= DRAG_THRESHOLD) return
+    isDragging.value = true
+    hasDragged.value = true
+    pendingModule = null
+    dragStart = { x: e.clientX, y: e.clientY }
+    panStart = { x: pan.x, y: pan.y }
+    orbitStart = orbitRotation.value
+  }
+
+  const moveDx = e.clientX - dragStart.x
+  const moveDy = e.clientY - dragStart.y
+  orbitRotation.value = orbitStart - moveDx * orbitDragSensitivity()
+  setPan(panStart.x, panStart.y + moveDy)
 }
 
 function onPointerUp() {
-  if (isDragging.value && hasDragged.value) {
+  if (pendingModule && !hasDragged.value) {
+    openModule(pendingModule)
+  } else if (isDragging.value && hasDragged.value) {
     snapOrbit()
     selectedModuleId.value = frontModuleId.value
   }
+  dragArmed = false
   isDragging.value = false
+  pendingModule = null
 }
 
 function onWheel(e: WheelEvent) {
@@ -203,14 +218,6 @@ function resetView() {
   selectedModuleId.value = null
 }
 
-function onIslandActivate(mod: CampusModule) {
-  if (hasDragged.value) return
-  if (frontModuleId.value === mod.id) {
-    openModule(mod)
-  } else {
-    focusIsland(mod.id)
-  }
-}
 
 // Touch support
 let lastTouchDist = 0
@@ -251,7 +258,6 @@ const worldTransform = computed(() =>
 )
 
 function openModule(mod: CampusModule) {
-  if (hasDragged.value) return // No abrir si fue un drag
   if (mod.action === 'assistant') {
     assistant.open()
     return
@@ -439,9 +445,9 @@ function setHoveredModule(modId: string | null) {
           animationDelay: `${idx * -0.8}s`,
           '--island-color': mod.color,
         }"
+        @pointerdown.stop="onIslandPointerDown($event, mod)"
         @mouseenter="setHoveredModule(mod.id)"
         @mouseleave="setHoveredModule(null)"
-        @click.stop="onIslandActivate(mod)"
       >
         <div class="island-underglow" :style="{ background: `radial-gradient(circle, ${mod.color}40, transparent 70%)` }" />
         <div class="island-img-wrap">
@@ -476,9 +482,9 @@ function setHoveredModule(modId: string | null) {
           '--label-offset': `${LABEL_OFFSET_Y}px`,
           animationDelay: `${idx * -0.8}s`,
         }"
+        @pointerdown.stop="onIslandPointerDown($event, mod)"
         @mouseenter="setHoveredModule(mod.id)"
         @mouseleave="setHoveredModule(null)"
-        @click.stop="onIslandActivate(mod)"
       >
         <div class="island-label">
           <div class="island-label-icon" :style="{ backgroundColor: mod.color + '33', boxShadow: `0 0 12px ${mod.color}44` }">
@@ -487,7 +493,7 @@ function setHoveredModule(modId: string | null) {
           <div class="island-label-text">
             <p class="island-label-name">{{ mod.name }}</p>
             <p class="island-label-sub">{{ mod.subtitle }}</p>
-            <p v-if="frontModuleId === mod.id" class="island-enter-hint">Haz clic para entrar ›</p>
+            <p v-if="hoveredModuleId === mod.id" class="island-enter-hint">Haz clic para entrar ›</p>
           </div>
           <span class="island-label-arrow">›</span>
         </div>
@@ -511,7 +517,7 @@ function setHoveredModule(modId: string | null) {
       <span class="welcome-dot" />
       <p class="welcome-text">
         <strong>Bienvenido de vuelta, {{ user?.name?.split(' ')[0] ?? 'Docente' }}</strong>
-        <span class="welcome-sub"> · Clic en una isla para elegirla · arrastra para girar · clic otra vez para entrar.</span>
+        <span class="welcome-sub"> · Clic en una isla para entrar · arrastra para girar.</span>
       </p>
     </div>
   </div>
@@ -877,6 +883,14 @@ function setHoveredModule(modId: string | null) {
   cursor: pointer;
 }
 
+.island-visual {
+  z-index: 8;
+  width: 172px;
+  height: 172px;
+  pointer-events: auto;
+  animation: float-island 6s ease-in-out infinite;
+}
+
 .space-campus.is-orbit-snapping .island-visual,
 .space-campus.is-orbit-snapping .island-label-anchor {
   transition:
@@ -903,11 +917,6 @@ function setHoveredModule(modId: string | null) {
   letter-spacing: 0.02em;
   color: color-mix(in srgb, var(--island-color) 85%, white);
   opacity: 0.95;
-}
-
-.island-visual {
-  z-index: 8;
-  animation: float-island 6s ease-in-out infinite;
 }
 
 .island-label-anchor {
@@ -1009,6 +1018,7 @@ function setHoveredModule(modId: string | null) {
   align-items: center;
   justify-content: center;
   overflow: visible;
+  pointer-events: auto;
 }
 
 .island-img {
