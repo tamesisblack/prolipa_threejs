@@ -117,8 +117,8 @@ export function parseAiReply(raw: string): IntentResult {
   } catch {
     return {
       type: 'info',
-      message: raw || 'No pude procesar la respuesta. ¿Puedes reformular tu pregunta?',
-      confidence: 0.5,
+      message: raw.trim() || 'No pude procesar la respuesta. ¿Puedes reformular tu pregunta?',
+      confidence: 0.9,
     }
   }
 
@@ -132,8 +132,8 @@ export function parseAiReply(raw: string): IntentResult {
   return {
     type: route ? 'navigate' : 'info',
     route,
-    message: parsed.message,
-    confidence: 0.88,
+    message: parsed.message || raw,
+    confidence: 0.9,
     action:
       parsed.action ??
       (route && module ? `Navegando → ${module.name}` : undefined),

@@ -17,16 +17,16 @@ const NAVIGATION_PATTERNS: Array<{
   label: string
   icon: string
 }> = [
-  { keywords: ['inicio', 'campus', 'home', 'principal', 'volver', 'dashboard'], route: '/', label: 'Inicio', icon: '🏠' },
-  { keywords: ['biblioteca', 'libro', 'libros', 'recurso'], route: '/biblioteca', label: 'Biblioteca', icon: '📚' },
-  { keywords: ['evaluacion', 'evaluaciones', 'examen', 'prueba', 'diagnostico'], route: '/evaluaciones', label: 'Evaluaciones', icon: '📝' },
-  { keywords: ['planificacion', 'planificaciones', 'clase', 'clases', 'calendario', 'agenda'], route: '/planificaciones', label: 'Planificaciones', icon: '📅' },
-  { keywords: ['certificado', 'certificados', 'diploma', 'certificacion', 'capacitacion'], route: '/certificaciones', label: 'Certificados', icon: '🏆' },
-  { keywords: ['estadistica', 'estadisticas', 'metrica', 'metricas', 'reporte'], route: '/estadisticas', label: 'Estadísticas', icon: '📈' },
-  { keywords: ['comunidad', 'foro', 'docente', 'colaboracion'], route: '/comunidad', label: 'Comunidad', icon: '💬' },
-  { keywords: ['asistente', 'proli', 'ia', 'inteligencia', 'chat', 'ayuda ia'], route: '/', label: 'Asistente IA', icon: '🤖' },
-  { keywords: ['multimedia', 'video', 'videos', 'audio', 'imagen', 'galeria'], route: '/multimedia', label: 'Recursos Multimedia', icon: '🎥' },
-]
+    { keywords: ['inicio', 'campus', 'home', 'principal', 'volver', 'dashboard'], route: '/', label: 'Inicio', icon: '🏠' },
+    { keywords: ['biblioteca', 'libro', 'libros', 'recurso'], route: '/biblioteca', label: 'Biblioteca', icon: '📚' },
+    { keywords: ['evaluacion', 'evaluaciones', 'examen', 'prueba', 'diagnostico'], route: '/evaluaciones', label: 'Evaluaciones', icon: '📝' },
+    { keywords: ['planificacion', 'planificaciones', 'clase', 'clases', 'calendario', 'agenda'], route: '/planificaciones', label: 'Planificaciones', icon: '📅' },
+    { keywords: ['certificado', 'certificados', 'diploma', 'certificacion', 'capacitacion'], route: '/certificaciones', label: 'Certificados', icon: '🏆' },
+    { keywords: ['estadistica', 'estadisticas', 'metrica', 'metricas', 'reporte'], route: '/estadisticas', label: 'Estadísticas', icon: '📈' },
+    { keywords: ['comunidad', 'foro', 'docente', 'colaboracion'], route: '/comunidad', label: 'Comunidad', icon: '💬' },
+    { keywords: ['asistente', 'proli', 'ia', 'inteligencia', 'chat', 'ayuda ia'], route: '/', label: 'Asistente IA', icon: '🤖' },
+    { keywords: ['multimedia', 'video', 'videos', 'audio', 'imagen', 'galeria'], route: '/multimedia', label: 'Recursos Multimedia', icon: '🎥' },
+  ]
 
 function normalize(text: string): string {
   return text
@@ -203,6 +203,30 @@ export function parseIntent(message: string): IntentResult {
       type: 'info',
       message: `¡Hola ${firstName()}! 👋 Me alegra verte en el Campus Virtual.\n\nSoy **Proli**, tu asistente inteligente. Puedo llevarte a cualquier módulo o contarte qué tienes pendiente hoy.\n\n¿En qué te ayudo?`,
       confidence: 0.95,
+    }
+  }
+
+  // Operaciones matemáticas (ej: "5+5", "cuanto es 10 + 20", "cuánto es 8 * 4")
+  const mathMatch =
+    normalized.match(/(?:cuanto|cuanto es|calcula|resultado de)?\s*(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)/i) ||
+    message.match(/(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)/)
+  if (mathMatch) {
+    const num1 = parseFloat(mathMatch[1])
+    const op = mathMatch[2]
+    const num2 = parseFloat(mathMatch[3])
+    let res = 0
+    if (op === '+') res = num1 + num2
+    else if (op === '-') res = num1 - num2
+    else if (op === '*') res = num1 * num2
+    else if (op === '/') res = num2 !== 0 ? num1 / num2 : NaN
+
+    if (!isNaN(res)) {
+      return {
+        type: 'info',
+        message: `El resultado de **${num1} ${op} ${num2}** es **${res}** 🔢.`,
+        confidence: 0.98,
+        action: 'Cálculo matemático',
+      }
     }
   }
 

@@ -15,10 +15,11 @@ const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1'
 /** Modelos de respaldo si el configurado no está disponible (cambian seguido en OpenRouter). */
 const FALLBACK_MODELS = [
   'openrouter/free',
-  'google/gemma-4-31b-it:free',
-  'inclusionai/ling-3.0-flash:free',
-  'openai/gpt-oss-20b:free',
-  'nvidia/nemotron-nano-12b-v2-vl:free',
+  'google/gemini-2.0-flash-exp:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'deepseek/deepseek-r1:free',
+  'qwen/qwen-2.5-7b-instruct:free',
+  'mistralai/mistral-7b-instruct:free',
 ] as const
 
 function getOpenRouterBaseUrl(): string {
@@ -113,13 +114,21 @@ async function requestCompletion(
 }
 
 function isModelUnavailable(error: unknown): boolean {
-  if (!(error instanceof Error)) return false
+  if (!(error instanceof Error)) return true
   const msg = error.message.toLowerCase()
   return (
     msg.includes('404') ||
+    msg.includes('400') ||
+    msg.includes('429') ||
+    msg.includes('500') ||
+    msg.includes('502') ||
+    msg.includes('503') ||
     msg.includes('no endpoints') ||
     msg.includes('not found') ||
-    msg.includes('model') && msg.includes('available')
+    msg.includes('available') ||
+    msg.includes('rate') ||
+    msg.includes('quota') ||
+    msg.includes('model')
   )
 }
 

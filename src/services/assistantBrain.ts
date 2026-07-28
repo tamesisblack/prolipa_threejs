@@ -22,28 +22,29 @@ export async function processAssistantMessage(
   message: string,
   history: ChatMessage[],
 ): Promise<IntentResult> {
-  // 1. Navegación explícita o intención con data quemada -> Respuesta INSTANTÁNEA
+  const userMessage: ChatMessage = {
+    role: 'user',
+    content: message.trim(),
+    timestamp: new Date(),
+  }
+  const allMessages = [...history, userMessage]
+
+  // 1. Navegación explícita (ej. "lleva a biblioteca") -> Navegación inmediata
   const navIntent = detectNavigationIntent(message)
   if (navIntent) return navIntent
 
-  const localIntent = parseIntent(message)
-  if (localIntent.type !== 'unknown') {
-    return localIntent
-  }
+  // DEBUG: Verificar estado de IA
+  const aiKey = import.meta.env.AI_API_KEY as string | undefined
+  const aiConfigured = isAiConfigured()
+  const provider = getAiProvider()
+  console.log('[Proli DEBUG] AI_API_KEY exists:', !!aiKey, '| isAiConfigured:', aiConfigured, '| provider:', provider)
 
-  // 2. Para preguntas complejas no quemadas, intentar IA remota con timeout máximo de 2s
-  if (isAiConfigured()) {
-    const userMessage: ChatMessage = {
-      role: 'user',
-      content: message.trim(),
-      timestamp: new Date(),
-    }
-    const allMessages = [...history, userMessage]
-    const provider = getAiProvider()
-
+  // 2. Si la IA de OpenRouter está configurada en .env -> Responder con OpenRouter
+  if (aiConfigured && provider) {
     try {
+      console.log('[Proli DEBUG] Llamando a', provider, '...')
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('AI response timeout')), 2000),
+        setTimeout(() => reject(new Error('AI response timeout (12s)')), 12000),
       )
 
       const apiCall =
@@ -52,14 +53,26 @@ export async function processAssistantMessage(
           : chatWithGemini(allMessages)
 
       const result = await Promise.race([apiCall, timeoutPromise])
+      console.log('[Proli DEBUG] Respuesta recibida:', result.type, result.message?.slice(0, 80))
       return result
     } catch (error) {
-      console.warn('[Proli] Fallo/timeout en IA externa, usando motor local:', error)
-      return localIntent
+      console.error('[Proli DEBUG] ERROR de IA:', error)
+      // Mostrar el error en el chat para diagnóstico
+      return {
+        type: 'info',
+        message: `⚠️ Error conectando con **${provider}**: ${error instanceof Error ? error.message : String(error)}\n\nUsando respuesta local como respaldo.`,
+        confidence: 0.5,
+      }
     }
   }
 
-  return localIntent
+  // Si la IA NO está configurada, mostrar por qué
+  if (!aiConfigured) {
+    console.warn('[Proli DEBUG] IA NO configurada. AI_API_KEY:', aiKey ? 'presente' : 'VACÍA')
+  }
+
+  // 3. Si no hay IA o falló, usar motor local
+  return parseIntent(message)
 }
 
 export function getThinkingDelay(_message: string, _useAi: boolean): number {
