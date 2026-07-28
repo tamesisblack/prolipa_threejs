@@ -108,15 +108,6 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
 
         <!-- Acciones derecha -->
         <div class="flex shrink-0 items-center gap-2">
-        <button
-          v-if="!isHome"
-          type="button"
-          class="rounded-xl border border-white/10 bg-slate-900/75 px-3 py-2 text-xs font-medium text-sky-300 shadow-sm backdrop-blur-md transition-colors hover:border-white/20 hover:text-white"
-          @click="router.push('/')"
-        >
-          ← Campus
-        </button>
-
         <template v-if="isHome">
           <CampusViewToggle compact class="hidden lg:inline-flex" />
 

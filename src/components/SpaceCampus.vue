@@ -66,6 +66,32 @@ const hasDragged = ref(false)
 let dragStart = { x: 0, y: 0 }
 let panStart = { x: 0, y: 0 }
 
+/** Límites de arrastre (% del viewport) — evita pan infinito */
+const PAN_LIMIT_X_RATIO = 0.16
+const PAN_LIMIT_Y_RATIO = 0.12
+
+function getPanLimits() {
+  const el = campusRef.value
+  if (!el) return { x: 220, y: 160 }
+  const scale = zoom.value
+  return {
+    x: el.clientWidth * PAN_LIMIT_X_RATIO * scale,
+    y: el.clientHeight * PAN_LIMIT_Y_RATIO * scale,
+  }
+}
+
+function clampPan() {
+  const { x: maxX, y: maxY } = getPanLimits()
+  pan.x = Math.max(-maxX, Math.min(maxX, pan.x))
+  pan.y = Math.max(-maxY, Math.min(maxY, pan.y))
+}
+
+function setPan(x: number, y: number) {
+  pan.x = x
+  pan.y = y
+  clampPan()
+}
+
 function onPointerDown(e: PointerEvent) {
   const target = e.target as HTMLElement
   // No iniciar pan al hacer clic en islas ni controles fijos
@@ -82,8 +108,7 @@ function onPointerMove(e: PointerEvent) {
   const dx = e.clientX - dragStart.x
   const dy = e.clientY - dragStart.y
   if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasDragged.value = true
-  pan.x = panStart.x + dx
-  pan.y = panStart.y + dy
+  setPan(panStart.x + dx, panStart.y + dy)
 }
 
 function onPointerUp() {
@@ -94,6 +119,7 @@ function onWheel(e: WheelEvent) {
   e.preventDefault()
   const delta = e.deltaY > 0 ? -0.05 : 0.05
   zoom.value = Math.min(1.6, Math.max(0.5, zoom.value + delta))
+  clampPan()
 }
 
 function resetView() {
@@ -121,14 +147,17 @@ function onTouchMove(e: TouchEvent) {
     const scale = dist / lastTouchDist
     zoom.value = Math.min(1.6, Math.max(0.5, zoom.value * scale))
     lastTouchDist = dist
+    clampPan()
   }
 }
 
 onMounted(() => {
   campusRef.value?.addEventListener('wheel', onWheel, { passive: false })
+  window.addEventListener('resize', clampPan)
 })
 onUnmounted(() => {
   campusRef.value?.removeEventListener('wheel', onWheel)
+  window.removeEventListener('resize', clampPan)
 })
 
 // Transform computado
